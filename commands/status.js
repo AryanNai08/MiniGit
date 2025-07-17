@@ -1,57 +1,34 @@
-const fs = require('fs');
-const path = require('path');
-const { getFileHash, loadStagingArea } = require('../utils/fileSystem');
+const path = require("path");
+const fs = require("fs");
+const { loadStagingArea, getAllFilesRecursive, readFileHash } = require("../utils/fileSystem");
 
 function status() {
-  const staged = loadStagingArea();
+  const staged = loadStagingArea(); // staged files from .minigit/index.json
+  const workingFiles = getAllFilesRecursive(process.cwd());
   const modified = [];
-  const unstaged = [];
-  const stagedFiles = Object.keys(staged);
+  const untracked = [];
 
-  const files = fs.readdirSync('.');
+  for (const file of workingFiles) {
+    const relativePath = path.relative(process.cwd(), file);
+    const fileHash = readFileHash(file);
 
-  files.forEach(file => {
-    const stat = fs.statSync(file);
-
-    // Skip directories and MiniGit system folder
-    if (stat.isDirectory() || file === '.minigit' || file === 'node_modules') {
-      return;
-    }
-
-    const currentHash = getFileHash(file);
-    const stagedHash = staged[file];
-
-    if (stagedHash) {
-      if (stagedHash !== currentHash) {
-        modified.push(file);
+    if (staged[relativePath]) {
+      if (staged[relativePath] !== fileHash) {
+        modified.push(relativePath);
       }
     } else {
-      unstaged.push(file);
+      untracked.push(relativePath);
     }
-  });
-
-  console.log('\n>> 📦 Staged Files:');
-  if (stagedFiles.length > 0) {
-    stagedFiles.forEach(file => console.log('   •', file));
-  } else {
-    console.log('   (none)');
   }
 
-  console.log('\n>> ✏️ Modified After Staging:');
-  if (modified.length > 0) {
-    modified.forEach(file => console.log('   •', file));
-  } else {
-    console.log('   (none)');
-  }
+  console.log("\n=== Staged Files ===");
+  Object.keys(staged).forEach(file => console.log(file));
 
-  console.log('\n>> ➕ Untracked Files:');
-  if (unstaged.length > 0) {
-    unstaged.forEach(file => console.log('   •', file));
-  } else {
-    console.log('   (none)');
-  }
+  console.log("\n=== Modified Files ===");
+  modified.forEach(file => console.log(file));
 
-  console.log('');
+  console.log("\n=== Untracked Files ===");
+  untracked.forEach(file => console.log(file));
 }
 
 module.exports = status;
